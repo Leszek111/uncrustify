@@ -38,6 +38,7 @@
 #endif
 #include <vector>
 #include <deque>
+#include <filesystem>
 
 /* Global data */
 struct cp_data cpd;
@@ -141,6 +142,7 @@ static void usage_exit(const char *msg, const char *argv0, int code)
            "\n"
            "Basic Options:\n"
            " -c CFG       : Use the config file CFG.\n"
+           " -c file      : Search for closest \".uncrustify-format\" config file CFG in source tree.\n"
            " -f FILE      : Process the single file FILE (output to stdout, use with -o).\n"
            " -o FILE      : Redirect stdout to FILE.\n"
            " -F FILE      : Read files to process from FILE, one filename per line (- is stdin).\n"
@@ -400,7 +402,27 @@ int main(int argc, char *argv[])
        ((source_list = arg.Param("-F")) == NULL))
    {
       // not using a file list, source_list is NULL
-   }
+	}
+
+	if (cfg_file == "file")
+	{
+		LOG_FMT(LDATA, "config_file = %s so let's search for .uncrustify-format file\n", cfg_file.c_str());
+		cfg_file = "";
+
+		namespace fs = std::experimental::filesystem;
+		
+		for (fs::path searchPath = fs::current_path(); searchPath != searchPath.root_path(); searchPath = searchPath.parent_path())
+		{
+			auto styleFile = searchPath;
+			styleFile.concat("\\.uncrustify-format");
+			if (fs::exists(styleFile))
+			{
+				cfg_file = styleFile.generic_string();
+				//printf("format: %s\n", cfg_file.c_str());
+				break;
+			}
+		}
+	}
 
    const char *prefix = arg.Param("--prefix");
    const char *suffix = arg.Param("--suffix");
@@ -577,7 +599,7 @@ int main(int argc, char *argv[])
     */
    if (cfg_file.empty())
    {
-      usage_exit("Specify the config file with '-c file' or set UNCRUSTIFY_CONFIG",
+      usage_exit(".uncrustify-format was not found in the source tree. Specify the config file with '-c [file]' or set UNCRUSTIFY_CONFIG",
                  argv[0], 58);
    }
 
